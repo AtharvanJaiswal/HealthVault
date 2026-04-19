@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAuth } from '../context/auth-context';
-import { generateHealthID, supabase } from '../lib/supabase';
+import { ensureUserProfile } from '../lib/database';
 import { toast } from 'sonner';
 
 export function SignupPage() {
@@ -35,38 +35,34 @@ export function SignupPage() {
 
     setLoading(true);
 
-    const healthId = generateHealthID();
+    const fullName = formData.fullName.trim();
+    const email = formData.email.trim();
+    const phone = formData.phone.trim();
 
-    const { error } = await signUp(formData.email, formData.password, formData.fullName, formData.phone);
+    const { user, session, error } = await signUp(email, formData.password, fullName, phone);
 
     if (error) {
-      toast.error('Signup failed. Please try again.');
+      toast.error(error.message || 'Signup failed. Please try again.');
       setLoading(false);
       return;
     }
 
-    // Get the current user after signup
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user) {
-      // Create user profile with health ID
-      await supabase.from('users').insert({
-        id: user.id,
-        email: formData.email,
-        full_name: formData.fullName,
-        phone: formData.phone,
-        health_id: healthId,
-      });
-
-      // Create default emergency profile
-      await supabase.from('emergency_profiles').insert({
-        user_id: user.id,
-      });
-
-      toast.success(`Account created! Your Health ID: ${healthId}`);
-      navigate('/app');
+    if (user && session) {
+      try {
+        const profile = await ensureUserProfile(user);
+        toast.success(`Account created! Your Health ID: ${profile.health_id}`);
+        navigate('/app');
+      } catch (profileError) {
+        console.error('Failed to create profile:', profileError);
+        toast.error('Account created, but the database profile could not be saved. Check Supabase setup.');
+      } finally {
+        setLoading(false);
+      }
+      return;
     }
 
+    toast.success('Account created. Please check your email to confirm your account before signing in.');
+    navigate('/login');
     setLoading(false);
   };
 

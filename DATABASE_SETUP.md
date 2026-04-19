@@ -1,31 +1,43 @@
-# HealthVault - Supabase Database Setup Guide
+# HealthVault — Database Setup (Updated)
 
-## Overview
+This guide sets up the complete Supabase backend for HealthVault.
 
-This guide will help you set up the Supabase database for the HealthVault application.
+Includes:
 
-## Prerequisites
+- Auth-linked users table
+- Emergency profiles
+- Medical records
+- Reminders
+- Storage bucket
+- Storage RLS policies
+- Public emergency lookup RPC
 
-- A Supabase account and project
-- Supabase project URL and anon key
+---
 
-## Environment Variables
+# 1. Environment Variables
 
-Add these to your `.env` file:
+Create `.env`
 
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_sb_publishable_key
 ```
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
 
-## Database Schema
+---
 
-Run the following SQL in your Supabase SQL Editor to create all necessary tables:
+# 2. Required Extension
 
-### 1. Users Table
+Run in SQL Editor:
 
 ```sql
--- Create users table
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+```
+
+---
+
+# 3. Users Table
+
+```sql
 CREATE TABLE users (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
@@ -35,206 +47,327 @@ CREATE TABLE users (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- Users can only see and update their own data
-CREATE POLICY "Users can view own data" ON users
-  FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can view own data"
+ON users
+FOR SELECT
+USING (auth.uid() = id);
 
-CREATE POLICY "Users can update own data" ON users
-  FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can update own data"
+ON users
+FOR UPDATE
+USING (auth.uid() = id);
 
-CREATE POLICY "Users can insert own data" ON users
-  FOR INSERT WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Users can delete own data" ON users
-  FOR DELETE USING (auth.uid() = id);
+CREATE POLICY "Users can insert own data"
+ON users
+FOR INSERT
+WITH CHECK (auth.uid() = id);
 ```
 
-### 2. Emergency Profiles Table
+---
+
+# 4. Emergency Profiles Table
 
 ```sql
--- Create emergency_profiles table
 CREATE TABLE emergency_profiles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  blood_group TEXT,
-  allergies TEXT,
-  medical_conditions TEXT,
-  emergency_contact_name TEXT,
-  emergency_contact_phone TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id)
+ id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+ user_id UUID REFERENCES users(id)
+ ON DELETE CASCADE NOT NULL,
+
+ blood_group TEXT,
+ allergies TEXT,
+ medical_conditions TEXT,
+
+ emergency_contact_name TEXT,
+ emergency_contact_phone TEXT,
+
+ updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+ UNIQUE(user_id)
 );
 
--- Enable Row Level Security
 ALTER TABLE emergency_profiles ENABLE ROW LEVEL SECURITY;
 
--- Users can manage their own emergency profile
-CREATE POLICY "Users can view own emergency profile" ON emergency_profiles
-  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own emergency profile"
+ON emergency_profiles
+FOR SELECT
+USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can update own emergency profile" ON emergency_profiles
-  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own emergency profile"
+ON emergency_profiles
+FOR UPDATE
+USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own emergency profile" ON emergency_profiles
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own emergency profile" ON emergency_profiles
-  FOR DELETE USING (auth.uid() = user_id);
-
--- Public can read emergency profiles (for QR code access)
-CREATE POLICY "Public can read emergency profiles" ON emergency_profiles
-  FOR SELECT USING (true);
+CREATE POLICY "Users can insert own emergency profile"
+ON emergency_profiles
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
 ```
 
-### 3. Medical Records Table
+---
+
+# 5. Medical Records Table
 
 ```sql
--- Create medical_records table
 CREATE TABLE medical_records (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('prescription', 'lab_report', 'vaccination', 'scan', 'other')),
-  title TEXT NOT NULL,
-  description TEXT,
-  file_url TEXT NOT NULL,
-  file_name TEXT NOT NULL,
-  file_type TEXT NOT NULL,
-  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  is_visible_in_emergency BOOLEAN DEFAULT FALSE
+ id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+ user_id UUID REFERENCES users(id)
+ ON DELETE CASCADE NOT NULL,
+
+ category TEXT NOT NULL CHECK (
+  category IN (
+   'prescription',
+   'lab_report',
+   'vaccination',
+   'scan',
+   'other'
+  )
+ ),
+
+ title TEXT NOT NULL,
+ description TEXT,
+
+ file_url TEXT NOT NULL,
+ file_name TEXT NOT NULL,
+ file_type TEXT NOT NULL,
+
+ uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+ is_visible_in_emergency BOOLEAN DEFAULT FALSE
 );
 
--- Enable Row Level Security
 ALTER TABLE medical_records ENABLE ROW LEVEL SECURITY;
 
--- Users can manage their own medical records
-CREATE POLICY "Users can view own records" ON medical_records
-  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own records"
+ON medical_records
+FOR SELECT
+USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own records" ON medical_records
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can insert own records"
+ON medical_records
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update own records" ON medical_records
-  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own records"
+ON medical_records
+FOR UPDATE
+USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete own records" ON medical_records
-  FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own records"
+ON medical_records
+FOR DELETE
+USING (auth.uid() = user_id);
 ```
 
-### 4. Reminders Table
+---
+
+# 6. Reminders Table
 
 ```sql
--- Create reminders table
 CREATE TABLE reminders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('medicine', 'appointment')),
-  title TEXT NOT NULL,
-  description TEXT,
-  reminder_date DATE NOT NULL,
-  reminder_time TIME NOT NULL,
-  frequency TEXT CHECK (frequency IN ('once', 'daily', 'weekly', 'monthly')),
-  is_completed BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+ id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+ user_id UUID REFERENCES users(id)
+ ON DELETE CASCADE NOT NULL,
+
+ type TEXT NOT NULL CHECK (
+  type IN ('medicine','appointment')
+ ),
+
+ title TEXT NOT NULL,
+ description TEXT,
+
+ reminder_date DATE NOT NULL,
+ reminder_time TIME NOT NULL,
+
+ frequency TEXT CHECK (
+  frequency IN (
+   'once',
+   'daily',
+   'weekly',
+   'monthly'
+  )
+ ),
+
+ is_completed BOOLEAN DEFAULT FALSE,
+
+ created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+---
+
+# 7. Create Storage Bucket
+
+Go to:
+
+Storage → New Bucket
+
+Create:
+
+```text
+medical-records
+```
+
+Settings:
+
+```text
+Public Bucket = ON
+```
+
+---
+
+# 8. Storage Policies
+
+Run in SQL Editor:
+
+```sql
+CREATE POLICY "Users can upload own files"
+ON storage.objects
+FOR INSERT
+WITH CHECK (
+ bucket_id='medical-records'
+ AND auth.uid()::text=(storage.foldername(name))[1]
 );
 
--- Enable Row Level Security
-ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can read own files"
+ON storage.objects
+FOR SELECT
+USING (
+ bucket_id='medical-records'
+ AND auth.uid()::text=(storage.foldername(name))[1]
+);
 
--- Users can manage their own reminders
-CREATE POLICY "Users can view own reminders" ON reminders
-  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own files"
+ON storage.objects
+FOR DELETE
+USING (
+ bucket_id='medical-records'
+ AND auth.uid()::text=(storage.foldername(name))[1]
+);
 
-CREATE POLICY "Users can insert own reminders" ON reminders
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own reminders" ON reminders
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own reminders" ON reminders
-  FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Public can read files"
+ON storage.objects
+FOR SELECT
+USING (
+ bucket_id='medical-records'
+);
 ```
 
-### 5. Storage Bucket
+---
 
-Create a storage bucket for medical records:
+# 9. Public Emergency Lookup RPC
 
-1. Go to Storage in your Supabase dashboard
-2. Create a new bucket named `medical-records`
-3. Set it to **Public** (files will be accessible via URLs)
-4. Configure the following RLS policies:
+Required for:
+
+```text
+/emergency/:healthId
+```
+
+Run:
 
 ```sql
--- Allow authenticated users to upload their own files
-CREATE POLICY "Users can upload own files" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'medical-records' 
-    AND auth.uid()::text = (storage.foldername(name))[1]
-  );
+CREATE OR REPLACE FUNCTION get_public_emergency_profile(
+ health_id_input TEXT
+)
 
--- Allow users to read their own files
-CREATE POLICY "Users can read own files" ON storage.objects
-  FOR SELECT USING (
-    bucket_id = 'medical-records' 
-    AND auth.uid()::text = (storage.foldername(name))[1]
-  );
+RETURNS TABLE (
+ user_id UUID,
+ full_name TEXT,
+ health_id TEXT,
 
--- Allow users to delete their own files
-CREATE POLICY "Users can delete own files" ON storage.objects
-  FOR DELETE USING (
-    bucket_id = 'medical-records' 
-    AND auth.uid()::text = (storage.foldername(name))[1]
-  );
+ profile_id UUID,
 
--- Allow public read access (for emergency access)
-CREATE POLICY "Public can read files" ON storage.objects
-  FOR SELECT USING (bucket_id = 'medical-records');
+ blood_group TEXT,
+ allergies TEXT,
+ medical_conditions TEXT,
+
+ emergency_contact_name TEXT,
+ emergency_contact_phone TEXT,
+
+ updated_at TIMESTAMPTZ
+)
+
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path=public
+
+AS $$
+
+SELECT
+ u.id,
+ u.full_name,
+ u.health_id,
+
+ ep.id,
+
+ ep.blood_group,
+ ep.allergies,
+ ep.medical_conditions,
+
+ ep.emergency_contact_name,
+ ep.emergency_contact_phone,
+
+ ep.updated_at
+
+FROM users u
+
+LEFT JOIN emergency_profiles ep
+ON ep.user_id=u.id
+
+WHERE u.health_id=health_id_input
+
+LIMIT 1;
+
+$$;
+
+REVOKE ALL
+ON FUNCTION get_public_emergency_profile(TEXT)
+FROM PUBLIC;
+
+GRANT EXECUTE
+ON FUNCTION get_public_emergency_profile(TEXT)
+TO anon, authenticated;
 ```
 
-## Function to Generate Health ID (Optional)
+---
 
-This function can be triggered when a new user signs up:
+# 10. Verification Queries
 
 ```sql
--- Create a function to auto-generate health ID
-CREATE OR REPLACE FUNCTION generate_health_id()
-RETURNS TEXT AS $$
-BEGIN
-  RETURN 'HV-' || upper(substr(md5(random()::text), 1, 8)) || '-' || upper(substr(md5(random()::text), 1, 6));
-END;
-$$ LANGUAGE plpgsql;
+SELECT * FROM users;
+
+SELECT * FROM emergency_profiles;
+
+SELECT * FROM medical_records;
+
+SELECT *
+FROM get_public_emergency_profile('HV-XXXXX');
 ```
 
-## Testing the Setup
+---
 
-After running all the SQL commands:
+# 11. Verified Working
 
-1. ✅ Check that all 4 tables are created
-2. ✅ Verify RLS is enabled on all tables
-3. ✅ Confirm storage bucket `medical-records` is created
-4. ✅ Test user signup and login
-5. ✅ Try uploading a medical record
-6. ✅ Access emergency page via QR code
+Successfully tested:
 
-## Security Notes
+✅ Signup  
+✅ RLS  
+✅ File upload  
+✅ Storage bucket  
+✅ medical_records insert  
+✅ Emergency lookup RPC
 
-⚠️ **Important**: This is a prototype setup. For production use with real medical data:
+---
 
-- Enable HIPAA compliance features in Supabase (Enterprise plan)
-- Implement end-to-end encryption for sensitive data
-- Add audit logging for all data access
-- Set up proper backup and disaster recovery
-- Implement session timeout and MFA
-- Review and harden all RLS policies
-- Use private storage buckets and signed URLs
-- Add data retention and deletion policies
+# 12. Recommended Improvement
 
-## Support
+Add server-side trigger:
 
-For issues with the database setup, check:
+auth.users
+→ auto-create users row
 
-- Supabase documentation: https://supabase.com/docs
-- Supabase Discord community
-- Project logs in Supabase dashboard
+This avoids relying only on frontend signup logic.

@@ -3,13 +3,11 @@ import { router } from './routes';
 import { AuthProvider } from './context/auth-context';
 import { Toaster } from './components/ui/sonner';
 import { SupabaseSetupNotice } from './components/supabase-setup-notice';
+import { isSupabaseConfigured } from './lib/supabase';
 
 export default function App() {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
   // Show setup notice if Supabase is not configured
-  if (!supabaseUrl || !supabaseKey) {
+  if (!isSupabaseConfigured) {
     return <SupabaseSetupNotice />;
   }
 

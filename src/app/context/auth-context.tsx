@@ -1,12 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { ensureUserProfile } from '../lib/database';
+import type { AuthError, Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: SupabaseUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    phone?: string
+  ) => Promise<{ user: SupabaseUser | null; session: Session | null; error: AuthError | Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -17,17 +23,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const loadSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        try {
+          await ensureUserProfile(session.user);
+        } catch (error) {
+          console.error('Failed to create or load user profile:', error);
+        }
+      }
+
       setUser(session?.user ?? null);
       setLoading(false);
-    });
+    };
+
+    loadSession();
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+
+      if (session?.user) {
+        ensureUserProfile(session.user).catch((error) => {
+          console.error('Failed to create or load user profile:', error);
+        });
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -35,10 +58,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+
+      if (data.user) {
+        await ensureUserProfile(data.user);
+      }
+
       return { error };
     } catch (error) {
       return { error: error as Error };
@@ -47,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -57,9 +85,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         },
       });
-      return { error };
+
+      if (data.user && data.session) {
+        await ensureUserProfile(data.user);
+      }
+
+      return { user: data.user, session: data.session, error };
     } catch (error) {
-      return { error: error as Error };
+      return { user: null, session: null, error: error as Error };
     }
   };
 

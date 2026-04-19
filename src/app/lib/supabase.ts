@@ -1,26 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Debug: Log environment variables (remove these after confirming it works)
-console.log('🔍 Supabase Debug - URL:', supabaseUrl);
-console.log('🔍 Supabase Debug - Anon Key:', supabaseAnonKey);
-console.log('🔍 import.meta.env.VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
-console.log('🔍 import.meta.env.VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY);
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Supabase environment variables are missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
-  );
-}
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey
+  supabaseUrl || 'https://example.supabase.co',
+  supabaseAnonKey || 'missing-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
 );
-
-
 
 // Database types
 export interface User {

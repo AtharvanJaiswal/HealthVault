@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router';
 import { Heart, AlertCircle, Phone, Activity } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { getPublicEmergencyData } from '../lib/database';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import type { EmergencyProfile } from '../lib/supabase';
@@ -23,31 +23,25 @@ export function PublicEmergencyView() {
     if (!healthId) return;
 
     try {
-      // Get user by health_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, full_name')
-        .eq('health_id', healthId)
-        .single();
+      const emergencyData = await getPublicEmergencyData(healthId);
 
-      if (userError || !userData) {
+      if (!emergencyData) {
         setNotFound(true);
         setLoading(false);
         return;
       }
 
-      setUserName(userData.full_name);
-
-      // Get emergency profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('emergency_profiles')
-        .select('*')
-        .eq('user_id', userData.id)
-        .single();
-
-      if (profileData) {
-        setProfile(profileData);
-      }
+      setUserName(emergencyData.full_name);
+      setProfile({
+        id: emergencyData.profile_id ?? '',
+        user_id: emergencyData.user_id,
+        blood_group: emergencyData.blood_group ?? undefined,
+        allergies: emergencyData.allergies ?? undefined,
+        medical_conditions: emergencyData.medical_conditions ?? undefined,
+        emergency_contact_name: emergencyData.emergency_contact_name ?? undefined,
+        emergency_contact_phone: emergencyData.emergency_contact_phone ?? undefined,
+        updated_at: emergencyData.updated_at ?? '',
+      });
     } catch (error) {
       console.error('Error loading emergency data:', error);
       setNotFound(true);

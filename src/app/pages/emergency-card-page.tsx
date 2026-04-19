@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { AlertCircle, Edit2, Save, Download } from 'lucide-react';
 import { useAuth } from '../context/auth-context';
 import { supabase } from '../lib/supabase';
+import { ensureEmergencyProfile } from '../lib/database';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -53,7 +54,7 @@ export function EmergencyCardPage() {
       .from('emergency_profiles')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setProfile(data);
@@ -64,17 +65,14 @@ export function EmergencyCardPage() {
         emergency_contact_name: data.emergency_contact_name || '',
         emergency_contact_phone: data.emergency_contact_phone || '',
       });
-    } else if (error) {
-      // Create profile if it doesn't exist
-      const { data: newProfile } = await supabase
-        .from('emergency_profiles')
-        .insert({ user_id: user.id })
-        .select()
-        .single();
+    } else if (!error) {
+      const newProfile = await ensureEmergencyProfile(user.id);
 
       if (newProfile) {
         setProfile(newProfile);
       }
+    } else {
+      toast.error('Failed to load emergency profile');
     }
   };
 

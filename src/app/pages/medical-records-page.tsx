@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FileText, Upload, Search, Filter, Eye, Download, Trash2, Plus } from 'lucide-react';
 import { useAuth } from '../context/auth-context';
 import { supabase } from '../lib/supabase';
+import { ensureUserProfile } from '../lib/database';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -13,6 +14,32 @@ import { Switch } from '../components/ui/switch';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import type { MedicalRecord } from '../lib/supabase';
+
+const getErrorMessage = (error: unknown) => {
+  const storageSetupMessage =
+    'Storage bucket "medical-records" was not found. Create it in Supabase Storage, then add the storage policies from DATABASE_SETUP.md.';
+
+  if (error instanceof Error && error.message) {
+    if (error.message.toLowerCase().includes('bucket not found')) {
+      return storageSetupMessage;
+    }
+
+    return error.message;
+  }
+
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      if (message.toLowerCase().includes('bucket not found')) {
+        return storageSetupMessage;
+      }
+
+      return message;
+    }
+  }
+
+  return 'Please check your Supabase table and storage policies.';
+};
 
 export function MedicalRecordsPage() {
   const { user } = useAuth();
@@ -89,50 +116,83 @@ export function MedicalRecordsPage() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user || !selectedFile) {
+    if (!user) {
+      toast.error('Please sign in before uploading a record');
+      return;
+    }
+
+    if (!selectedFile) {
       toast.error('Please select a file');
       return;
     }
 
+    const title = uploadData.title.trim();
+    const description = uploadData.description.trim();
+
+    if (!title) {
+      toast.error('Please enter a title');
+      return;
+    }
+
     setLoading(true);
+    let uploadedFilePath: string | null = null;
 
     try {
+      await ensureUserProfile(user);
+
       // Upload file to Supabase Storage
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileExt = selectedFile.name.split('.').pop()?.toLowerCase() || 'file';
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
       
       const { error: uploadError } = await supabase.storage
         .from('medical-records')
-        .upload(fileName, selectedFile);
+        .upload(filePath, selectedFile, {
+          contentType: selectedFile.type || undefined,
+        });
 
       if (uploadError) throw uploadError;
+      uploadedFilePath = filePath;
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('medical-records')
-        .getPublicUrl(fileName);
+        .getPublicUrl(filePath);
 
       // Create database record
       const { error: dbError } = await supabase.from('medical_records').insert({
         user_id: user.id,
         category: uploadData.category,
-        title: uploadData.title,
-        description: uploadData.description,
+        title,
+        description: description || null,
         file_url: publicUrl,
         file_name: selectedFile.name,
         file_type: selectedFile.type,
         is_visible_in_emergency: uploadData.isEmergencyVisible,
       });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        if (uploadedFilePath) {
+          const { error: cleanupError } = await supabase.storage
+            .from('medical-records')
+            .remove([uploadedFilePath]);
+
+          if (cleanupError) {
+            console.warn('Uploaded file could not be cleaned up after database insert failed:', cleanupError);
+          }
+        }
+
+        throw dbError;
+      }
 
       toast.success('Record uploaded successfully');
       setUploadDialogOpen(false);
       resetUploadForm();
       loadRecords();
     } catch (error) {
-      toast.error('Failed to upload record');
-      console.error(error);
+      const message = getErrorMessage(error);
+      toast.error(`Failed to upload record: ${message}`);
+      console.error('Failed to upload record:', error);
     } finally {
       setLoading(false);
     }
