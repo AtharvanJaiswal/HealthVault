@@ -1,232 +1,362 @@
-# HealthVault - Digital Health ID & Medical Record Management System
+# HealthVault — Digital Health ID & Medical Record Management System
 
-A secure, mobile-first healthcare application designed to help individuals safely store, organize, and access their medical data anytime, especially during emergencies.
+HealthVault is a secure digital health management system for storing medical records, generating emergency-access QR codes, and managing health reminders.
 
-![HealthVault](https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1200&h=400&fit=crop)
+Built with:
 
-## 🎯 Core Objectives
+- React + TypeScript + Vite
+- Supabase Auth
+- PostgreSQL
+- Supabase Storage
+- Row Level Security (RLS)
 
-- **Centralize Medical Records**: Store all your health documents in one secure place
-- **Emergency Access**: Provide instant access to critical health information during emergencies via QR code
-- **Privacy First**: User-controlled access to sensitive health data with encryption
-- **Smart Organization**: Categorize and search medical records efficiently
+---
 
-## ✨ Key Features
+# Features
 
-### 1. User Authentication
-- Secure login and signup with email/password
-- Automatic generation of unique Health ID for every user
-- Session management with Supabase Auth
+## User Authentication
+- Email/password login
+- Supabase authentication
+- Persistent sessions
+- Automatic Health ID generation
 
-### 2. Medical Record Management
-- Upload and store:
-  - 📋 Prescriptions
-  - 🧪 Lab reports
-  - 💉 Vaccination records
-  - 🔬 Scan reports (X-ray, MRI, CT, etc.)
-  - 📄 Other medical documents
-- Categorized and searchable records
-- View, download, and delete records
-- Control which records are visible in emergency situations
+---
 
-### 3. Emergency Card (QR-Based Access)
-- Generate a QR code linked to your emergency profile
-- QR scan displays only critical information:
-  - Blood group
-  - Allergies
-  - Existing medical conditions
-  - Emergency contact details
-- Read-only, privacy-restricted public access
-- Downloadable QR code for printing
+## Medical Records
+Upload and manage:
 
-### 4. Reminders & Appointments
-- Medicine reminders with:
-  - Dose information
-  - Time scheduling
-  - Frequency (once, daily, weekly, monthly)
-- Doctor appointment reminders
-- Mark reminders as complete
-- Overdue reminder alerts
+- Prescriptions
+- Lab Reports
+- Vaccination Records
+- Scan Reports
+- Other Medical Documents
 
-### 5. Privacy & Security
-- User controls what data is private vs emergency-visible
-- Row Level Security (RLS) on all database tables
-- Secure file storage with access controls
-- No medical diagnosis or treatment suggestions
+Capabilities:
 
-## 🛠️ Tech Stack
+- File upload
+- View records
+- Download records
+- Delete records
+- Emergency visibility toggle
 
-- **Frontend**: React 18, TypeScript
-- **Routing**: React Router v7
-- **Styling**: Tailwind CSS v4
-- **UI Components**: Radix UI, shadcn/ui
-- **Backend**: Supabase (PostgreSQL, Auth, Storage)
-- **QR Codes**: qrcode.react
-- **Icons**: Lucide React
-- **Notifications**: Sonner
-- **Date Handling**: date-fns
+Files are stored in:
 
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 18+ and npm/pnpm/yarn
-- A Supabase account and project
-
-### 1. Clone the Repository
-
-```bash
-git clone <your-repo-url>
-cd healthvault
+```text
+medical-records
 ```
 
-### 2. Install Dependencies
+Supabase Storage bucket.
+
+---
+
+## Emergency QR Card
+Generate a QR code that exposes only emergency-safe data:
+
+- Blood Group
+- Allergies
+- Medical Conditions
+- Emergency Contact
+
+Powered by secure RPC:
+
+```sql
+get_public_emergency_profile()
+```
+
+Route:
+
+```text
+/emergency/:healthId
+```
+
+---
+
+## Reminders
+Supports:
+
+- Medicine reminders
+- Appointment reminders
+- Scheduling
+- Frequency rules
+- Completion tracking
+
+---
+
+# Tech Stack
+
+## Frontend
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- shadcn/ui
+
+## Backend
+- Supabase Auth
+- PostgreSQL
+- Supabase Storage
+- Row Level Security
+
+---
+
+# Project Structure
+
+```text
+src/
+ ├── app/
+ ├── styles/
+ ├── main.tsx
+
+DATABASE_SETUP.md
+README.md
+```
+
+---
+
+# Setup
+
+## Install
 
 ```bash
 npm install
-# or
-pnpm install
 ```
 
-### 3. Set Up Supabase
+---
 
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Copy your project URL and anon key
-3. Create a `.env` file in the root directory:
+## Configure Environment
+
+Create:
+
+```text
+.env
+```
+
+Add:
 
 ```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_sb_publishable_key
 ```
 
-### 4. Set Up Database
+---
 
-Follow the instructions in [DATABASE_SETUP.md](./DATABASE_SETUP.md) to:
-- Create all required tables
-- Set up Row Level Security policies
-- Configure storage buckets
-- Enable necessary extensions
+## Configure Database
 
-### 5. Run the Application
+Follow:
+
+```text
+DATABASE_SETUP.md
+```
+
+Includes:
+
+- Tables
+- Storage bucket
+- RLS policies
+- Emergency RPC
+- Verification queries
+
+---
+
+## Run App
 
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:5173` to see the app.
+---
 
-## 📱 Application Flow
+# Verified Working
 
-```
-1. Landing Page → Sign Up/Login
-2. Sign Up → Health ID Generated
-3. Dashboard → Overview of records and reminders
-4. Medical Records → Upload and manage documents
-5. Emergency Card → View/download QR code
-6. Reminders → Schedule medicine/appointments
-7. Settings → Manage profile and privacy
-```
+Successfully tested:
 
-## 🔒 Security & Privacy Notice
+## Authentication
+✅ User signup  
+✅ User login  
+✅ Session persistence
 
-⚠️ **IMPORTANT**: This is a **prototype application** for demonstration and educational purposes.
+---
 
-For production use with real medical data, you **MUST**:
+## Database
+✅ users table working  
+✅ emergency_profiles working  
+✅ medical_records working  
+✅ reminders schema created
 
-- ✅ Enable HIPAA compliance features (Supabase Enterprise)
-- ✅ Implement end-to-end encryption for PHI
-- ✅ Add comprehensive audit logging
-- ✅ Set up proper backup and disaster recovery
-- ✅ Implement multi-factor authentication (MFA)
-- ✅ Use signed URLs for sensitive file access
-- ✅ Conduct security audits and penetration testing
-- ✅ Ensure data residency compliance
-- ✅ Add session timeout and activity monitoring
-- ✅ Implement proper data retention policies
+---
 
-**Figma Make is not designed for collecting or storing sensitive PII or PHI.**
+## Storage
+✅ medical-records bucket created  
+✅ Storage upload working  
+✅ Storage policies working
 
-## 📊 Database Schema
+---
 
-### Tables
+## Upload Flow
+Verified full flow:
 
-1. **users** - User profiles with Health ID
-2. **emergency_profiles** - Emergency health information (publicly readable)
-3. **medical_records** - Uploaded medical documents
-4. **reminders** - Medicine and appointment reminders
-
-### Storage
-
-- **medical-records** bucket - Stores uploaded files (PDF, images)
-
-See [DATABASE_SETUP.md](./DATABASE_SETUP.md) for complete schema.
-
-## 🎨 Design Principles
-
-- **Mobile-First**: Responsive design optimized for all devices
-- **Accessibility**: WCAG compliant UI components
-- **Clean UI**: Minimal, professional healthcare aesthetic
-- **Fast Load**: Optimized bundle size and lazy loading
-- **Intuitive Navigation**: Clear information hierarchy
-
-## 🔮 Future Enhancements
-
-- [ ] Biometric authentication
-- [ ] OTP-based login
-- [ ] Online pharmacy integration
-- [ ] Hospital bed availability tracking
-- [ ] Ambulance service integration
-- [ ] Family health management
-- [ ] AI-powered health insights
-- [ ] Risk prediction analytics
-- [ ] Multi-language support
-- [ ] Progressive Web App (PWA)
-- [ ] Push notifications
-
-## 🧪 Testing
-
-```bash
-# Run tests (when implemented)
-npm test
+```text
+Upload file
+→ Save file in Storage
+→ Insert metadata in medical_records
+→ Render uploaded record in UI
 ```
 
-## 📦 Building for Production
+Working.
+
+---
+
+## Emergency Access
+Verified:
+
+```text
+QR lookup RPC works
+```
+
+via:
+
+```sql
+get_public_emergency_profile()
+```
+
+---
+
+# Database Schema
+
+Tables:
+
+```text
+users
+emergency_profiles
+medical_records
+reminders
+```
+
+Storage:
+
+```text
+medical-records
+```
+
+---
+
+# Verification Queries
+
+```sql
+SELECT * FROM users;
+
+SELECT * FROM emergency_profiles;
+
+SELECT * FROM medical_records;
+```
+
+Test emergency lookup:
+
+```sql
+SELECT *
+FROM get_public_emergency_profile('HV-XXXXX');
+```
+
+---
+
+# Common Errors
+
+## Bucket not found
+
+Cause:
+
+Storage bucket missing.
+
+Fix:
+
+Create:
+
+```text
+medical-records
+```
+
+---
+
+## New row violates row-level security policy
+
+Cause:
+
+Storage policies missing.
+
+Fix:
+
+Run storage policies in DATABASE_SETUP.md
+
+---
+
+## Could not find public.medical_records
+
+Cause:
+
+Table not created.
+
+Fix:
+
+Run medical_records schema SQL.
+
+---
+
+## npm not recognized
+
+Cause:
+
+Node.js missing.
+
+Fix:
+
+Install Node.js LTS.
+
+---
+
+# Security
+
+Implemented:
+
+- Row Level Security
+- Storage access policies
+- Security-definer RPC
+- Restricted emergency data exposure
+
+Recommended next improvements:
+
+- auth.users trigger → auto-create users row
+- Signed URLs for private files
+- MFA
+- Audit logging
+- PHI encryption
+- HIPAA hardening
+
+---
+
+# Build
 
 ```bash
 npm run build
 ```
 
-The build output will be in the `dist/` directory.
+---
 
-## 🤝 Contributing
+# Current Status
 
-This is a prototype project. For production use:
-
-1. Review and enhance security measures
-2. Add comprehensive error handling
-3. Implement proper logging
-4. Add unit and integration tests
-5. Set up CI/CD pipeline
-6. Configure monitoring and alerting
-
-## 📄 License
-
-This project is for educational and demonstration purposes.
-
-## 🆘 Support
-
-For database setup issues:
-- [Supabase Documentation](https://supabase.com/docs)
-- [Supabase Discord Community](https://discord.supabase.com)
-
-For React and UI issues:
-- [React Documentation](https://react.dev)
-- [Radix UI Documentation](https://www.radix-ui.com)
-
-## ⚖️ Legal Disclaimer
-
-This application is a prototype and should not be used for actual medical record storage without proper HIPAA compliance, security audits, and legal review. The creators assume no liability for any misuse or data breaches.
+```text
+Frontend Connected        YES
+Supabase Auth Working     YES
+Database Working          YES
+Storage Working           YES
+Medical Upload Working    YES
+Emergency QR Working      YES
+```
 
 ---
 
-Built with ❤️ for better healthcare accessibility
+# License
+
+Educational / prototype use.
+
+Do not use with real PHI in production without compliance review.
